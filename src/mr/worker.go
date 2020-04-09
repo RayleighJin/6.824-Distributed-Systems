@@ -1,12 +1,14 @@
 package mr
 
-import "fmt"
-import "log"
-import "net/rpc"
-import "hash/fnv"
+import (
+	"fmt"
+	"hash/fnv"
+	"log"
+	"net/rpc"
+	"time"
+)
 
-
-//
+// KeyValue is the k/v pair struct
 // Map functions return a slice of KeyValue.
 //
 type KeyValue struct {
@@ -24,8 +26,7 @@ func ihash(key string) int {
 	return int(h.Sum32() & 0x7fffffff)
 }
 
-
-//
+// Worker is the called by mrworker.go
 // main/mrworker.go calls this function.
 //
 func Worker(mapf func(string, string) []KeyValue,
@@ -35,6 +36,39 @@ func Worker(mapf func(string, string) []KeyValue,
 
 	// uncomment to send the Example RPC to the master.
 	// CallExample()
+	for {
+		task := AssignTask()
+		switch task.Flag {
+		case 1:
+			// all tasks are being taken care of, wait for another sec to send request
+			time.Sleep(time.Second)
+			continue
+		case 2:
+			// all work done
+			return
+		}
+		switch task.Task.taskType {
+		case mapTask:
+			MapTask(mapf, task.Task)
+			UpdateTask(task.Task.taskType, task.Task.taskID)
+		case reduceTask:
+			MapTask(mapf, task.Task)
+			UpdateTask(task.Task.taskType, task.Task.taskID)
+		default:
+			panic("worker panic")
+		}
+		time.Sleep(time.Second)
+	}
+
+}
+
+// MapTask executes the mapf
+func MapTask(mapf func(string, string) []KeyValue, task Task) {
+
+}
+
+// ReduceTask executes the reducef
+func ReduceTask(reducef func(string, string) []KeyValue, task Task) {
 
 }
 
@@ -43,22 +77,35 @@ func Worker(mapf func(string, string) []KeyValue,
 //
 // the RPC argument and reply types are defined in rpc.go.
 //
-func CallExample() {
+// func CallExample() {
 
-	// declare an argument structure.
+// 	// declare an argument structure.
+// 	args := ExampleArgs{}
+
+// 	// fill in the argument(s).
+// 	args.X = 99
+
+// 	// declare a reply structure.
+// 	reply := ExampleReply{}
+
+// 	// send the RPC request, wait for the reply.
+// 	call("Master.Example", &args, &reply)
+
+// 	// reply.Y should be 100.
+// 	fmt.Printf("reply.Y %v\n", reply.Y)
+// }
+
+// AssignTask gets the task information from master
+func AssignTask() AssignTaskReply {
 	args := ExampleArgs{}
+	reply := AssignTaskReply{}
+	call("Master.AssignTask", &args, &reply)
+	return reply
+}
 
-	// fill in the argument(s).
-	args.X = 99
-
-	// declare a reply structure.
-	reply := ExampleReply{}
-
-	// send the RPC request, wait for the reply.
-	call("Master.Example", &args, &reply)
-
-	// reply.Y should be 100.
-	fmt.Printf("reply.Y %v\n", reply.Y)
+// UpdateTask updates the state of tasks in master
+func UpdateTask(taskType int, taskID int) {
+	// TODO
 }
 
 //
